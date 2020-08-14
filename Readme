@@ -1,3 +1,200 @@
-Hello Github.
+# Implementierung und Evaluation eines Wegfindealgorithmus auf Basis von ToF-Sensorik
 
-This is my first repository
+## Inhaltsverzeichnis
+1. [Einführung](#einführung)
+2. [Hardware](#hardware)
+   * [Tof Sensoren](#tof-sensoren)
+3. [Software](#software)
+   * [Headerdatei](#headerdatei)
+   * [Quellcode](#quellcode)
+   * [Launchfiles](#launchfiles)
+   * [Inbetriebnahme des Algorithmus](#inbetriebnahme-des-gesamten-algorithmus)
+4. [Testfahrten im Parcours](#testfahrten-im-parcour)
+5. [AUT4 Praktikumsversuch](#aut4-praktikumsversuch)
+6. [Zusammenfassung](#zusammenfassung)
+7. [Ausblick](#ausblick)
+8. [Autoren](#autoren)
+
+## Einführung
+In der Projektarbeit "Implementierung und Evaluation eines Wegfindealgorithmus auf Basis von ToF-Sensorik" ist das Ziel die Erstellung eines AUT4-Praktikumsversuchs, bei dem der mobile Roboter mit einer autonomen Robotermanövrierung durch einen Parcours fährt. Dies dient zur Veranschaulichung der bisher durch eine Simulation vermittelten Lehrinhalte.	
+Es wird ein ToF-Sensorgürtel auf dem mobilen Roboter integriert und anschließender der Navigationsalgorithmus für das Manövrieren durch einen aufzubauenden Testparcours erstellt. Dabei werden acht Sensorboards mit je zwei ToF Sensoren pro Roboter verwendet. Die ToF Sensoren werden über eine CAN Bus Schnittstelle an den Raspberry Pi 4 zugeordnet. Außerdem wird ein Programm zum Sensor-Teaching implementiert, um automatisch zu erkennen, welcher Sensor sich an welcher Stelle befindet. Zum Schluss wird der Navigationsalgorithmus für die Roboterplattform in einem Parkour getestet. Für den Aufbau des Standardtestparcours sollen die aktuell verwendeten Holzstellwände des @Work-Teams verwendet werden. Dieser soll statisch sein und ist während eines Testlaufs nicht veränderlich. Der Testparcours ist nur zwischen zwei Testläufen veränderlich und 7-9 m² groß, mit einer Wandhöhe von 270 mm. Die Erfolgsquote des Manövrieralgorithmus soll bei dem Standardparcour größer als 95% sein (100% liegen?). Der Roboter darf somit kein Hindernis berühren und ohne eine Richtungsänderung den Parcours durchfahren können. <br>
+Zu Beginn des Berichts wird die vorhandene Hardware genauer beschrieben und im Abschnitt Software erst ein grober Überblick der Dateistruktur, sowie eine detaillierte Beschreibung der einzelnen Files gegeben. Nach einer Startanleitung der Algorithmen des Teaching und der autonomen Navigation durch den Parcours werden die Ergebnisse der Testfahrten festgehalten. Anschließend wird ein möglicher AUT4 Praktikumsversuch beschrieben und das gesamte Projekt zusammengefasst. Der abschließende Punkt gibt einen Ausblick über mögliche zukünftige Arbeiten und Verbesserungsvorschläge für die Wegfindung einer Roboterplattform auf Basis von ToF Sensorik. 
+
+## Hardware
+Bei der vorhandenen Roboterplattform handelt es sich um ein Mecanum Antrieb, mit dem es möglich ist in omnidirektionale Richtungen zu fahren, um den Roboter jederzeit in eine beliebige Richtung fahren lassen zu können. Auf der Plattform ist ein Sensorring befestigt, in dem acht Sensorboards (vorne, hinten, seitlich rechts sowie links und jeweils ein Sensorboard an den vier Ecken) angebracht sind. Jedes Sensorboard beinhaltet zwei ToF Sensoren. Dies ergibt somit 16 Sensoren pro Sensorring und Roboter. Die Sensorhalterungen sind bereits am Sensorring befestigt. Sie dienen als Halterung und gleichzeitig als Schutz für die Time of Flight Sensoren. Eine Neigung um 8° verhindert, dass der Boden als Hindernis erkannt wird. Auf der Roboterplattform ist außerdem der Rasberry PI 4 für eine kabellose Steuerung der Roboterplattform integriert. <br>
+<img src="autonomous_navigation/files/Roboterplattform.jpg" width="240" height="241"> <img src="autonomous_navigation/files/Roboterplattform_oben.jpg" width="240" height="240"> 
+
+### ToF Sensoren
+TOF-Kameras sind 3D-Kamerasysteme, die mit dem Laufzeitverfahren, dem time of flight, Distanzen messen. ToF Kameras emittieren ein intensitätsmoduliertes sinusförmiges Signal von Infrarotlicht und verwendet CCD / CMOS-Sensoren zur Detektion des reflektierten Lichts. Die Zeit zwischen gesendetem und empfangenem Signal ist proportional zu der Entfernung zwischen der Lichtquelle (ToF Sensor) und dem reflektierenden Medium (Gegenstände). 
+
+ToF Sensoren benötigen nur geringen Platz in den Sensorboards, da die Beleuchtung und das Objektiv nahe beieinander liegen. Sie haben eine sehr hohe Bildrate, wodurch Echtzeitanwendungen ermöglicht werden. Sie haben keine Schwierigkeiten mit wiederholten Mustern oder uniformen Flächen. Abstandswerte können von alle diffus reflektierenden Materialien ermittelt werden. Mit mehreren ToF Sensoren ist es möglich, Gesten- und Bewegungsinformationen von einem dieser ToF-Sensoren zu erhalten. Dazu müssen ein, zwei oder mehr Sensoren verwendet werden. Mit gekoppelten ToF-Sensoren können auch Handbewegungen von links nach rechts und umgekehrt erkannt werden. <br>
+Neben positiven Merkmalen sind ToF Sensoren anfällig gegenüber einigen geringen Messfehlern. Durch Interreflektionen das remittierte  Signal eine Überlagerung von Nahinfrarotlicht, das unterschiedliche Entfernungen zurückgelegt hat. Diese Mehrfachreflektion lässt Vertiefungen und Ecken abgerundet erscheinen und verschließt Formen mit einem glatten Übergang. In der Nähe von hellen Objekten können die Distanzmessungen von Fremdlicht überlagert werden. Diese Lichtstreuung in den Objektiven lässt Hintergrundobjekte näher erscheinen. 
+
+Die vorhandenen ToF Sensoren haben die Bezeichnung VL53L1X der Firma STMicroelectronics <br>
+[Datasheet VL53L1X](https://www.st.com/resource/en/datasheet/vl53l1x.pdf) <br>
+<img src="autonomous_navigation/files/tofs.jpg" width="220">
+
+Die Reichweite (Distanzmodus) wird per Software eingestellt (distance mode auf short, medium oder long). Der Öffnungswinkel kann von 20° bis 27° festgelegt werden und beträgt 27°. Der Laser der ToF Sensoren ist ein Laser der Klasse 1 mit 940 nm Wellenlänge. Laser der Klasse 1 sind unter vernünftigen Betriebsbedingungen, auch bei Verwendung optischer Hilfsmittel, sicher. Ist die Strahlung zugänglich, dann ist sie so schwach, dass jede Schädigung ausgeschlossen werden kann.
+
+| Distanzmodus | max Distanz mit normalem Umgebungslicht | max Distanz mit hohem Umgebungslicht |
+|   ---------  | ---------------------  | --------------------- |
+| Short        |    136 cm              | 135 cm                |
+| Medium       |    290 cm              | 76 cm                 |
+| Long         |    360 cm              | 73 cm                 |
+
+## Software
+Es sind die Ordner config, include, launch, script und src vorhanden. Im Ordner config befindet sich die Datei config.yaml, welche die Konfiguration der ToF-Sonsorpositionen definiert. Der Pfad include enthält die Header Datei mit den Deklerationen der Klasse Autonomous Navigation. Die Launchfiles für den Navigationsalgorithmus, den Roboter udn die ToF Sensoren liegen im Verzeichnis launch. Das Skript can_up im Ordner script bereitet den Rasberry Pi für die Verbindung über die CAN-Bus Schnittstelle vor, stellt mehrere CAN-Dienstprogramme zur Verfügung konfiguriert diese. Im Verzeichnis src liegt das Navigation node und die Quelltextdatei. Im folgenden wird einzeln auf die Files eingegangen.
+
+### Headerdatei
+Die im Verzeichnis include hinterlegte Headerdatei AutonomousNavigation.h enthält die Klasse AutonomousNavigation mit den notwendigen Deklarationen für den Quelltext. Zu Beginn wird ein Standard und Spezialkonstruktor AutonomousNavigation und der entsprechende Destructor erstellt. Zu den privaten Methoden gehören beispielsweise GetSensorringIndex, CheckDataValid, 
+SafetyZone, der Filter und die Trajektorie. Außerdem werden die ToF Sensorring Daten in einen Array geschrieben. 
+
+### Teaching
+Der Teaching Algorithmus gibt über die CAN-ID vor, welches Sensorboard sich an welcher Stelle des Sensorrings befindet. Es ist wichtig den Roboter in Hinderniskasten zu stellen, da die Sensoren nur aktualisiern, wenn sie neue Distanzwerte bekommen, die kleiner sind als die Maximalwerte. Für das ansprechen eines Sensorboard muss ein Gegenstand genau vor dasjenige Sensorboard gehalten werden, das das Programm aktuell initialisieren will. Dafür muss man den Anweisungen am Monitor folgen. ABLAUF DES TEACHING!!. Zum Schluss wird die erreichte Konfiguration noch einmal ausgegeben. Diese Sensorboardanordnung wird an die Config.yaml Datei weitergegeben, wo die aktuelle Anordnung gespeichert ist.
+
+### Quellcode
+Der Quelltext des Projekts ist die C++ Datei AutonomousNavigation.cpp. Hier befinden sich die Codes des Teaching, des Filters und der Navigation. Im folgenden wird auf diese einzelnd eingegangen.
+
+#### Filter
+Die Filterung vor der Distanzwertverarbeitung für die Navigation ist notwendig, da durch Reflexion und Mehrfachreflexion höhere Werte empfangen werden können und das Ergebnis verfälscht wird. Es wird ein digitaler PT1 Regler verwendet. Diese werden verwendet, um digitalisierte Signale zu manipulieren und bestimmte Bestandteile eines Signals hervorzuheben oder zu unterdrücken. Tiefpass Frequenzen unterhalb einer Grenzfrequenz können das Filter passieren und Anteile mit höheren Frequenzen dagegen dämpfen.
+Die Differenzengliechung des PT1 Reglers lautet y[k] = y[k-1] + (KPt1 * u[k] - y[k-1]) * dT / (T + dT)
+Die Abstandsdaten der ToF Sensoren werden in GetSensorringIndex von ToFControllerROS.cpp abonniert. Diese bekommt den Array Index für den Sensorring und es ist jede einkommende Nachricht für jeweils einen Sensor vorgesehen. In der Methode Filter wird anschließend der PT1 Filter über die Abstandsdaten der ToF Sensoren angewendet.
+
+#### Navigation
+
+Der Navigationsalgorithmus ermöglicht das autonome Manövrieren der Roboterplattform durch den aufgestellten Parcour. 
+
+Es wird ein Schema nach dem Gedankexperiment des Braitenberg-Vehikel, wie in der Robotik Vorlesung besprochen, angewandt.
+
+Für den Algorithmus kommen die drei Vorderen sowie die seitlichen Sensoren zum Einsatz. Die X-Lineargeschwindigkeit des Roboters wird durch die minimale Sichtweite der vorderen drei Sensoren bestimmt. Für die Berechnung der Drehung sind sowohl die seitlichen als auch die an den ecken liegenden Senoren interessant. Sie sind jeweils als Gegenspieler definiert. Es werden die Differenzen der Sichtweiten sowie die Differenzen der Kehrwerte der Sichtweiten gebildet. Die normale Differenz sucht den freien Raum wo der Roboter hinfahren soll. Die Differenz des Kehrwerts sorgt dafür, wenn der Roboter nah an ein Hindernis hinkommt davon wegfahren will. Anschließend werden die ermittelten Werte, je nach Lage der Sensoren mit dem entsprechenden Vorzeihen, addiert. 
+
+Die gefilterten Daten werden erst in SensorFusion von beiden ToF Sensoren zu einem Signal pro Board zusammengeführt. Dabei gibt das Programm ein ungültiges Signal, sobald beide ToF Sensoren eines Sensorboards keine Distanzwerte erhält. Zu diesem Fall ist eine weitere Funktion unstuck erstellt, wobei sich der Roboter auf der Stelle etwas hin und her dreht, um weider gültige Abstandswerte für das Sensorboard zu erhalten. Anschließend werden die zusammengeführten Daten in SafetyZone korrigiert, also ein Rahmen um den ToF Sensorring als Offset hinzuaddiert, um die Räder der Plattform mit zu berücksichtigen und keine Zusammenstöße zu ermöglichen. Zum Schluss werden in CalculateTrajectory der eigentliche Navigationsalgorithmus durchgeführt. Hier werden die drei Vorderen sowie die seitlichen Sensoren zur Abstandsmessung benutzt, die Drehung und die Geschwindigkeit limitiert und die berechneten Daten in SendTrajectoryData als Message an das Mechanum Steering veröffentlicht.
+
+### Node
+Es wurden zwei verschiedenen Nodes erstellt. Bied bauen auf der Klasse AutonomousNavigation auf. Der Node [autonomous_navigation_configuration_node](https://github.com/alexspa/Projekt_Arbeit/blob/master/autonomous_navigation/src/autonomous_navigation_configuration_node.cpp) wird zum konfigurieren des Roboter gestartet, er führt den Teachingalgorithmus aus und Verwendet vorallem die methoden aus [Teaching.cpp](https://github.com/alexspa/Projekt_Arbeit/blob/master/autonomous_navigation/src/Teaching.cpp). Der zweite Knoten [autonomous_navigation_configuration](https://github.com/alexspa/Projekt_Arbeit/blob/master/autonomous_navigation/src/autonomous_navigation_configuration_node.cpp) führt den Navigationsalgorithmus aus und verwendet ausschließlich die Methoden aus [AutonomousNavigation.cpp](https://github.com/alexspa/Projekt_Arbeit/blob/master/autonomous_navigation/src/AutonomousNavigation.cpp).
+
+### Launchfiles
+Im Verzeichnis launch sind fünf Launchdateien vorhanden. Die einzelnen Launches für die Navigation, den Roboter, die ToF Sensoren und außerdem die System Launches, die alle drei einzelnen Files gleichzeitig ausführen.
+
+#### Navigation.launch
+Dieses Launchfile führt das Node autonomous_navigation_node, also den eigenen Navigationsknoten aus.
+
+#### Robot.launch
+Das Launchfile führt eine andere Launchdatei mechanum_steering.launch aus. Diese ist für das Ansteuern der Roboterplattform zuständig (Geschwindigkeitsdaten des Navigationsalgorithmus umwandeln in Raddrehzahlen und dementsprechendem Motorstrom) und führt wiederrum das mecanum_steering_node aus. Über folgenden Link gelangt man zur GitHubaddresse des Mecanum Steering des Studierbots. <br>
+[Mecanum Steering](https://github.com/autonohm/robotworkshop/tree/master/studierbot/mechanum_steering)
+
+#### ToF.launch
+Dieses Launchfile fürht das Skript can_up.sh, das für die Verbindung zwischen dem Rasberry Pi und der CAN-Bus verantworltich ist, aus. Außerdem sichert es die Anbindung zu den ToF Sensoren und gibt die ermittelten Sensorwerte jedes der acht Sensorboards auf dem Bildschirm wieder. Zudem wird das tof_controller_node von EVO Cortex ausgeführt, das den Quelltext ToFControllerROS aufruft. Diese Quelldatei initialisiert die Sensoren, gibt den Öffnungswinkel der Messung von 27° und den Distanzmodus vor und veröffentlicht die erfassten Daten.  Von diesen Daten werden im autonomous Navigation Algorithmus der Zeitpunkt und die Range der Messdaten abonniert und verarbeitet. <br>
+[ToF Controller Node](https://github.com/evocortex/evo_rd_platform_example/blob/master/src/node/EvoToFControllerNode.cpp) <br>
+[ToF Controller Quelltext](https://github.com/evocortex/evo_rd_platform_example/blob/master/src/sw_interface/ToFControllerROS.cpp)
+
+#### Configuration.launch
+
+
+#### autonomous_navigation_system.launch
+Startet alle nötigen Launchfiles für die autonome Navigation des Studierbots mit den Standardkonfigurationen. Damit sind Navigation, Robot und ToF Launches gemeint.
+
+## Inbetriebnahme des gesamten Algorithmus
+Als erstes ist eine ssh Verbindung mit dem Studierbot aufzubauen. Anschließend kann die Postition der Sensorboard über den Teachingalgorithmus konfigurtiert werden (optional Configuration.launch). Ist die Konfiguration korrekt kann der Navigationsalgorithmus gestartet werden.  
+``` 
+$ ssh pi@192.168.5.56
+$ roslaunch autonomous_navigation Configuration.launch
+$ roslaunch autonomous_navigation autonomous_navigation_system.launch
+```
+### Teaching
+Mit dem Paket [autonomous_navigation](https://github.com/alexspa/Projekt_Arbeit/tree/master/autonomous_navigation) ist es möglich die Sensorpostitionen über einen Teachingalgorithmus anzupassen. Die aktuell gültige Konfiguration ist in der Datei [sensor_position_config.yaml](https://github.com/alexspa/Projekt_Arbeit/blob/master/autonomous_navigation/config/sensor_position_config.yaml) gespeichert, jedem Sensorboard ist eine eindeutige ID zugeordnet. Um eine erfolgreiche Anwendung des Teachingalgorithmus sicherzustellen müssen einige Voraussetzungen gelten. Alle verwendeten SensorID's müssen bekannt sein, lediglich ihre Reihenfolge darf unbekannt sein. Zudem muss sichergestellt sein, dass alle Sensoren gültige Distanzwerte erhalten. Hierzu ist der Studierbot in einer abgesperrten Box zu platzieren. Mögliche Fehlerfälle wurden so weit möglich abgefangen. Mehr dazu nach dem Ablauf <br>
+
+Durchführen des Teaching Algorithmus:
+1. Platzieren des Studierbots in einer abgesperrten Box <br> <img src="autonomous_navigation/files/Teaching_Prerequisite.jpg" width="200"> 
+2. Starten des Teaching algorithmus 
+  * Verbindungsaufbau `$ ssh pi@IP` 
+  * Ausführen der Launchdatei ` $ roslaunch autonomous_navigation Configuration.launch` 
+3. Folgen der Anweisungen im Terminal
+4. Nach erfolgreichen Schreiben der Daten oder Abbruch beenden des Launch files mit ` Strg+C`  
+
+| Fehlerfälle: | 
+|--------------- |
+| SensorboardID soll mehrfach vergeben werden  |
+| <img src="autonomous_navigation/files/Teaching_double_configuration.png" width="700"> <br> <img src="autonomous_navigation/files/Teaching_invalid_1.jpg" width="200"> <img src="autonomous_navigation/files/Pfeil.png" width="150"> <img src="autonomous_navigation/files/Teaching_invalid_5.jpg" width="200"> <br> |
+| mehrere Sensoren werden gleichzeitig Verdeckt |
+| <img src="autonomous_navigation/files/Teaching_multible_sensors_Configuration.png" width="700"> <br> <img src="autonomous_navigation/files/Teaching_invalid_2.jpg" width="200"> |
+| gewähltes Sensorboard wird nicht gefunden, da der erkannte Abstand zu groß ist |
+| <img src="autonomous_navigation/files/Teaching_Sensor_not_found.png" width="700"> <br> <img src="autonomous_navigation/files/Teaching_invalid_3.jpg" width="200"> |
+| Hand nach Aufforderung nicht weggezogen |
+| <img src="autonomous_navigation/files/Teaching_Sensor_Under_limit.png" width="700"> <br> <img src="autonomous_navigation/files/Teaching_invalid_4.jpg" width="200"> <img src="autonomous_navigation/files/Pfeil.png" width="150"> <img src="autonomous_navigation/files/Teaching_invalid_4.jpg" width="200"> |
+| Fehleingabe des Users |
+| <img src="autonomous_navigation/files/Teaching_illegal_input.png" width="700"> |
+
+### Navigation
+Die Ausgabe am Monitor bei laufendem Navigsationsalgorithmus ist im folgendem Bild dargestellt. Man findet die Rohdaten, die Gefilterten Daten, sowie eine Ausgabe über die Gültigkeit der Messwerte aller 16 Sensoren in der ersten Tabelle "Sensorring". Die zweite Tabelle "Boards" enthält die weierverarbeiteten Distanzwerte. Zuerst die fusionierten Sensorwerte in der Spalte range. In der zweiten Spalte corrected range sind die überarbeiteten Reichweiten aufgelistet. Unter Twist Message werden als x die Geschwindigkeit des Roboters und w der Winkel bei einer Drehung aufgeführt. Diese sind hier 0 da sich der Roboter nicht bewegt. Y ist immer 0, da keine Geschwindigkeit in y-Richtung vorgegeben wird. Zuletzt wird die Akkuspannung ausgegeben, die als Nennspannung 19,2 V bestitzt. <br>
+<img src="autonomous_navigation/files/Console_autonomous_navigation_system_running.png" width="240"> <br>
+Bei einer inkorrekten Distanzermittlung würden zwei Sensoren desselben Sonsorboards false Werte invalid = ungültige Werte) erhalten. Dies ist im folgenden Bild beispielsweise dargestellt. <br>
+<img src="autonomous_navigation/files/Console_autonomous_navigation_system_valid_tag_false.png" width="240">
+
+## Testfahrten im Parcour
+Die Testfahrten werden an einem Testparcour im Labor KA640 durchgeführt. Der Parkour soll variabel sein, da sich dieser im Labor oft verändern kann und der Roboter somit unterschiedliche Strecken bewältigen muss. Der Parcour wird mit den vorhandenen Stellwänden @Work-Teams aufgebaut. Dieser soll statisch sein und ist während eines Testlaufs nicht, jedoch zwischen zwei Testläufen veränderlich. Die Stellwände sind 500 x 270 mm groß. Es werden keine niedrigeren Hindernisse eingebaut. Es wird eine Rundenbahn um die beiden Pflanzen im Labor gebaut. Der Roboter sucht sich vom Startpunkt seinen Weg durch diesen Parcour. <br>
+<img src="autonomous_navigation/files/Parcour.jpg" width="200"> <br>
+Nach vollständiger Konfiguration der Sensorboardanordnung durch den Teaching Algorithmus wird der Roboter in den Parcour gestellt und die Navigation gestartet. Die Roboterplattform schafft beide Rundenrichtungen in etwa zwei Minuten. Dabei stößt der Roboter an keiner Wand an. Die größten Zeitverluste bringt das häufige stehenbleiben des Roboters durch die ungültigen Distanzwerte, wenn die ToF Sensoren kein Gegenstand mehr erkennen und sich der Roboter erst drehen muss. Die Rundenzeiten des Roboters durch den Parcour wird in folgender Tabelle gelistet. 
+| Richtung | Rundenzeit |
+| -------- | ---------- |
+| Rechtsherum | 2:01 |
+|            | 1:58 |
+|            | 1:56 |
+| Linksherum | 2:10 |
+|            | 2:12 |
+|            | 2:09 |
+Es fiel auf, dass die ToF Sensoren im hellen Tageslicht schlechter sehen als in etwas dunkleren Teilen des Parcours. Bei mehr Tageslicht werden Hindernisse schlechter erkannt und die Sensoren sehen kürzere Distanzen. Außerdem wurde die schwarze Keramik Oberfläche der Pflanzentöpfe durch die ToF Sensoren nicht optimal erkannt. Um dies zu umgehen wurde ein Tuch um den Topf gespannt und die Oberfläche verändert. Auf der anderen Seite wurden Holzwände davor gestellt. Die ToF Range ist für lange Strecken im Parcour zu kurz. Dabei bekommt ein Sensorboard false Werte (kein Hindernis) und bleibt stehen. Durch die Funktion Unstuck in der Navigation können jedoch wieder gütige Daten erhalten werden.
+Außerdem wurde die Navigation durch einen umgestellten Parcour getestet. Diesen konnte der Roboter ebenfalls autonom durchfahren. 
+eos für eine Fahrtrunde in beide Richtungen sind in den Links zu finden. Zum Schluss der Testfahrten hat sich häufig ein Rad des Roboters gelöst und ist abgefallen (meist das Rad hinten links), da warscheinlich die Welle zu kurz ist und somit die Schraube nicht gut befestigt ist. 
+[Videos des Teaching Algorithmus und der Testfahrten](https://faubox.rrze.uni-erlangen.de/getlink/fiMtfZStsAk9fFrRjKTZqpo7/Videos)
+
+## AUT4 Praktikumsversuch
+Aus dem Thema der Projektarbeit kann optimal ein Praktikumsversuch für das AUT4 Praktikum geschaffen werden. Es sind genug Roboterplattformen mit integriertem ToF Sensorring vorhanden, die man mit einen Navigationsalgorithmus durch einen Parcour im Labor manövrieren lassen kann.  Als Aufgabe für die Studierenden könnte aus der aufgeführten Methode Trajectory ein Teil herausgelöscht werden, um diesen selbst zu programmieren. Zum finalen Vergleich könnte jedes Team seinen Roboter mit ergänzem Code einmal durch den Parcour im Kreis fahren lassen und dabei die Zeit messen. Eine komplette Aufgabenstellung könnte lauten: <br>
+Im Versuch "Navigation einer mobilen Roboterplattform mittels ToF-Sensorik" soll eine eigene Navigationsalgorithmus Methode in den Quellcode implementiert werden.
+
+**Voraussetzungen**
+* catkin workspace anlegen mit beispielsweise 
+```
+$ mkdir -p catkin_ws/src
+```
+* Initialisieren des workspaces
+```
+$ cd catkin_ws/src
+$ catkin_init_workspace
+```
+* herunterladen des Codes
+```
+$ git clone https://github.com/alexspa/Projekt_Arbeit/tree/master/autonomous_navigation
+```
+**Versuchsdurchführung** <br>
+Machen Sie sich mit dem Quellcode AutonomousNavigation.cpp vertraut. Es ist der Navigationsalgorithmuscode in der Datei autonomousnavigation/src AutonomousNavigation.cpp in der Methode CalculateTrajectory zu ergänzen. Hier muss die Variable _ ToFSensoringCorrected als Distanzwert verarbeitet werden und die Message des erstellten Navigationsalgorithmus in SendTrajectoryData an mechMsg veröffentlicht werden. Außerdem muss die CMakeLists.txt Datei um die entsprechenden Einträge vervollständigt werden. Die Verbindung mit dem Roboter und das Starten der Navigation nach erfolgreicher Kompilierung muss mit den Befehlen 
+```
+$ ssh pi@192.168.5.56
+$ roslaunch autonomous_navigation_system.launch
+```
+ausgeführt werden.
+Zum Vergleich werden die Studierbots im Laborparcour gegeneinander antreten und die Rundenzeiten gemessen.
+
+## Zusammenfassung
+In dieser Projektarbeit wurde die verwendete Hardware und die ToF Sensoren näher beschrieben. Außerdem wurde die Struktur der erstellten Software dargelegt und die Headerdatei, der Quellcode sowie die Launchfiles genauer erklärt. Des weiteren wurde die Inbetriebnahme der Roboterplattform mit den implementierten Files strukturiert festgehalten und anschließend der Teaching und Navigationsalgorithmus getestet. Der Teaching Algorithmus muss in einer Box vollzogen werden, um jedem Sensorboard ine ID zuzuordnen. Mit dem Wegfindealgorithmus fährt die Roboterplattform den Parcour in beide Richtungen in etwa zwei Minuten ohne an ein Hindernis zu stoßen. Die meiste Zeit wird bei einem ungültigen Signal eines Sensorboards benötigt, um durch eingebautes Drehen wieder einen Distanzwert zu erhalten. Zusätzlich wurden zur Inbetriebnahme und den Tests des Teaching und Navigationsalgorithmus eine Videoaufzeichnung erstellt. Als letzten Punkt wurde eine beispielhafte Aufgabenstellung für den möglichen AUT4 Praktikumsversuch "Navigation einer mobilen Roboterplattform mittels ToF-Sensorik" formuliert, in dem die Studenten in der Methode CalculateTrajectory einen Navigationsalgorithmus implementieren sollen. 
+Der abschließende Stand des Projekts und der Codes ist auf GITHUBADRESSE niedergelegt. Außerdem ist ein komplettes Image unter FAUBOX angespeichert.
+
+## Ausblick
+Beim autonomen Navigieren der Roboterplattform durch den Parcour kommt es zu Situationen, in denen die ToF Sensoren keine Abstandswerte liefern. Dies führt zu false Werten in beiden ToF Sensoren in einem Sensorboard. Der Roboter bleibt deshalb aufgrund von ungültigen Daten stehen (ist im Navigationsalgorithmus dementsprechend festeglegt). Das Problem liegt an dem zu großen Abstand des einen Sensorboards zu einem nächsten Hindernis. Die ToF Sensoren erkennen diesen nicht mehr und geben dies als Nachricht weiter. Um diesen Fehler zu eliminieren und eine schnellere Navigation durch den Parcour zu ermöglichen müsste die Reichweite der ToF Sensoren angepasst (vergrößert) werden. 
+
+Außerdem kann die allgemeine Funktionalität und Genauigkeit der ToF Sensoren getestet werden. In dieser Projektarbeit wurde der Parcour nur mit Holzstellwänden aufgebaut und somit nur die Abstandserfassung auf nichtreflektierenden Materialien (Holz) nachgewiesen. Interessant wäre zu untersuchen, wie gut der Navigationsalgorithmus mit reflektierenden (Spiegel) oder durchlässigen Materialen (Glas) umgeht. Die Abstandsmessung gegenüber einer Glaswand sollte orthogonal bis zum Brewsterwinkel zwischen Luft und Glas von 57,2° bewältigt werden können. Außerdem kann die Genauigkeit der Distanzmodi der ToF Sensoren bei unterschiedlichem Licht getestet werden. Es könnte die Messgenauigkeit bei natürlich dunkler und heller Umgebung, genauso wie reines künstliches Licht überprüft werden. Zusätzlich könnten kleinere Stellwandhöhen getestet werden, bis zu welcher minimalen Höhe die ToF Sensoren Abstandswerte bekommen, um eventuell auch kleinere Stufen oder Hindernisse zu umfahren. Optional könnten ToF Sensoren, die den Abstand zum Boden erfassen eingebaut und ergänzt werden.
+
+Des weiteren kann untersucht werden ob es möglich ist, ein zusätzliche Programm für den SLAM (Simultaneous Localization and Mapping) zu verwenden, der die Odometrie (Positionsbestimmung eines mobilen Systems) nutzt. Dieses erstellt aus den erhaltenen ToF Sensordaten gleichzeitig eine Umgebungskarte, schätzt seine räumliche Lage innerhalb dieser Karte und gibt den aktuellen Stand kontinuierlich am Bildschirm aus. Es wird also der Roboter und die Umgebungsgegenstände lokalisiert. Dabei muss nur sichergestellt werden ob die Daten der ToF Sensoren zur Selbstlokalisierung ausreichen. ToF Kameras ermöglichen durch eine höhere Bildrate eine kontinuierliche Berücksichtigung von Bewegungen. Bisher wurden für den SLAM Laserscanner und Stereokameras verwendet, da diese eine hohe Messweite und Genauigkeit besitzen. <br>
+[3D Mapping mit ToF Sensoren PDF](https://elib.dlr.de/62654/1/FuchsM-Iros09_3dcam.pdf)
+
+## Autoren
+
+Eder Christoph
+
+Moos Daniel
+
+Spachmüller Alexander
+
+Studiengang elektronische und mechatronische Systeme
+
+Fakultät EFI
